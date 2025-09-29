@@ -3,7 +3,7 @@ import torch
 from torchvision.transforms import Resize, ToTensor, Compose
 from PIL import Image
 from torch.utils.data import Dataset
-
+import matplotlib.pyplot as plt
 
 class Monet(Dataset):
     def __init__(self, root, is_train=True, transform=None):
@@ -51,7 +51,27 @@ if __name__ == '__main__':
         Resize((224, 224))
     ])
 
-    train_dataset = Monet(root="C:/Users/tam/Documents/data/monet_style_dataset", is_train=True,
-                              transform=transform)
-    print(train_dataset.__len__())
-    a = train_dataset[0]
+    train_dataset = Monet(
+        root="C:/Users/tam/Documents/data/monet_style_dataset",
+        is_train=True,
+        transform=transform
+    )
+    print("Số lượng mẫu:", len(train_dataset))
+
+    origin_img, style_img = train_dataset[10]
+
+    # Chuyển tensor về numpy để hiển thị
+    def show_tensor_img(tensor_img, title=""):
+        img = tensor_img.permute(1, 2, 0).cpu().numpy()  # (C,H,W) -> (H,W,C)
+        plt.imshow(img)
+        plt.axis("off")
+        plt.title(title)
+
+    plt.figure(figsize=(6, 3))
+    plt.subplot(1, 2, 1)
+    show_tensor_img(origin_img, "Origin")
+
+    plt.subplot(1, 2, 2)
+    show_tensor_img(style_img, "Style")
+
+    plt.show()

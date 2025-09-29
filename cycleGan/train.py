@@ -151,7 +151,11 @@ def train():
             cycle_loss_x = cycle_loss(x_recon, x_real)
             cycle_loss_y = cycle_loss(y_recon, y_real)
 
-            g_loss = g_loss_x + g_loss_y + 10 * (cycle_loss_x + cycle_loss_y)
+            # Identity loss: G_XtoY(y) should be close to y, G_YtoX(x) should be close to x
+            identity_loss_x = cycle_loss(G_YtoX(x_real), x_real)  # G_YtoX(x) vs x
+            identity_loss_y = cycle_loss(G_XtoY(y_real), y_real)  # G_XtoY(y) vs y
+
+            g_loss = g_loss_x + g_loss_y + 10 * (cycle_loss_x + cycle_loss_y) + 5 * (identity_loss_x + identity_loss_y)
             g_optimizer.zero_grad()
             g_loss.backward()
             g_optimizer.step()
@@ -171,6 +175,8 @@ def train():
                 writer.add_scalar('Loss/Generator', g_loss.item(), global_step)
                 writer.add_scalar('Loss/Cycle_X', cycle_loss_x.item(), global_step)
                 writer.add_scalar('Loss/Cycle_Y', cycle_loss_y.item(), global_step)
+                writer.add_scalar('Loss/Identity_X', identity_loss_x.item(), global_step)
+                writer.add_scalar('Loss/Identity_Y', identity_loss_y.item(), global_step)
 
             # Evaluation step
             if (i % 100 == 0) and (i != 0):
