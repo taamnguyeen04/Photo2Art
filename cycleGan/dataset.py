@@ -5,73 +5,82 @@ from PIL import Image
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 
-class Monet(Dataset):
-    def __init__(self, root, is_train=True, transform=None):
-        if is_train:
-            root = os.path.join(root, 'train')
-        else:
-            root = os.path.join(root, 'val')
-        photo_path = os.path.join(root, "origin")
-        style_path = os.path.join(root, "style")
+class MonetPairedDataset(Dataset):
+    def __init__(self, root_dir, transform=None):
+        self.root_dir = root_dir
         self.transform = transform
-        self.length_dataset = len(os.listdir(photo_path))
-        self.list_photo_path = [os.path.join(photo_path, x) for x in os.listdir(photo_path)]
-        self.list_style_path = [os.path.join(style_path, x) for x in os.listdir(style_path)]
 
+        self.image_pairs = []
+
+        for dataset_name in ['monet_style_dataset_A', 'monet_style_dataset_B']:
+            dataset_path = os.path.join(root_dir, dataset_name)
+            if not os.path.exists(dataset_path):
+                continue
+
+            original_dir = os.path.join(dataset_path, f'original_{dataset_name[-1]}')
+            stylized_dir = os.path.join(dataset_path, f'stylized_{dataset_name[-1]}')
+
+            if os.path.exists(original_dir) and os.path.exists(stylized_dir):
+                original_images = sorted([f for f in os.listdir(original_dir)
+                                        if f.endswith(('.jpg', '.png', '.jpeg'))])
+                stylized_images = sorted([f for f in os.listdir(stylized_dir)
+                                        if f.endswith(('.jpg', '.png', '.jpeg'))])
+
+                for orig_img in original_images:
+                    if orig_img in stylized_images:
+                        self.image_pairs.append({
+                            'original': os.path.join(original_dir, orig_img),
+                            'stylized': os.path.join(stylized_dir, orig_img)
+                        })
+        print(f"Found {len(self.image_pairs)} paired images")
 
     def __len__(self):
-        return self.length_dataset
+        return len(self.image_pairs)
 
-    def __getitem__(self, index):
-        try:
-            origin_img_path = self.list_photo_path[index % self.length_dataset]
-            style_img_path = self.list_style_path[index % self.length_dataset]
+    def __getitem__(self, idx):
+        pair = self.image_pairs[idx]
 
-            origin_img = Image.open(origin_img_path).convert("RGB")
-            style_img = Image.open(style_img_path).convert("RGB")
+        original = Image.open(pair['original']).convert('RGB')
+        stylized = Image.open(pair['stylized']).convert('RGB')
 
-            if self.transform:
-                origin_img = self.transform(origin_img)
-                style_img = self.transform(style_img)
+        if self.transform:
+            original = self.transform(original)
+            stylized = self.transform(stylized)
 
-            return origin_img, style_img
+        return original, stylized
 
-        except (FileNotFoundError, OSError) as e:
-            print(f"Error loading images: {e}")
-            next_index = (index + 1) % self.length_dataset
-            return self.__getitem__(next_index)
 
-    def cout(self, a):
-        print(a)
-        print(type(a))
+class MonetUnpairedDataset(Dataset):
+    def __init__(self, root_dir, transform=None, mode='original'):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.mode = mode
+        self.images = []
+
+        for dataset_name in ['monet_style_dataset_A', 'monet_style_dataset_B']:
+            dataset_path = os.path.join(root_dir, dataset_name)
+            if not os.path.exists(dataset_path):
+                continue
+
+            if mode == 'original':
+                img_dir = os.path.join(dataset_path, f'original_{dataset_name[-1]}')
+            else:
+                img_dir = os.path.join(dataset_path, f'stylized_{dataset_name[-1]}')
+
+            if os.path.exists(img_dir):
+                imgs = [os.path.join(img_dir, f) for f in os.listdir(img_dir)
+                       if f.endswith(('.jpg', '.png', '.jpeg'))]
+                self.images.extend(imgs)
+        print(f"Found {len(self.images)} {mode} images")
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        image = Image.open(self.images[idx]).convert('RGB')
+        if self.transform:
+            image = self.transform(image)
+        return image
+    
 if __name__ == '__main__':
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    transform = Compose([
-        ToTensor(),
-        Resize((224, 224))
-    ])
-
-    train_dataset = Monet(
-        root="C:/Users/tam/Documents/data/monet_style_dataset",
-        is_train=True,
-        transform=transform
-    )
-    print("Số lượng mẫu:", len(train_dataset))
-
-    origin_img, style_img = train_dataset[10]
-
-    # Chuyển tensor về numpy để hiển thị
-    def show_tensor_img(tensor_img, title=""):
-        img = tensor_img.permute(1, 2, 0).cpu().numpy()  # (C,H,W) -> (H,W,C)
-        plt.imshow(img)
-        plt.axis("off")
-        plt.title(title)
-
-    plt.figure(figsize=(6, 3))
-    plt.subplot(1, 2, 1)
-    show_tensor_img(origin_img, "Origin")
-
-    plt.subplot(1, 2, 2)
-    show_tensor_img(style_img, "Style")
-
-    plt.show()
+    pass
